@@ -1,0 +1,171 @@
+alculon Automated Testing System
+1. Calculon
+This project creates an automated testing system named Calculon, similar to the Bender program that is used in this class. Calculon loads a suite description file and then executes programs, passing input files and collecting output for diff checking.
+
+2. Suite Definition File
+A test suite consists of a number of programs and a number of test cases to apply to each program. A test case is defined by an input file, an output file to diff against, the timeout for that test, and an optional list of commandline arguments.
+
+Calculon gets test suite information from a suite definition file. The suite definition file contains a series of program lines that start with P Each P line gives the name of the program to run followed by all of the files required to create that program.
+
+Each P line is followed by one or more test lines for that program, each starting with T. Each T line gives the name of the input file, the name of the output file, the timeout for that test in milliseconds, and the commandline arguments to pass to the program when running it (if any).
+
+Below is an example suite definition file, Suite1.suite:
+
+P a.out main.c header.h
+T test1.in test1.out 1000 -a -b -c
+T test2.in test2.out 1000 -xyz
+T test3.in test3.out 800
+P b.out bprogram.c SmartAlloc.c SmartAlloc.h
+T test1.in test1.out 10000
+T test4.in test4.out 30000 -verbose
+This suite file tests the programs a.out and b.out. For a.out, three tests will be run. For b.out, two tests will be run. The first test for a.out will pass test1.in as standard input, diff standard output against test1.out, time out if the test takes longer than a second to run, and pass the arguments "-a -b -c" when executing a.out.
+
+You may assume a maximum number of 32 commandline arguments per test and 32 tests per program.
+
+3. Implementation Details
+Output
+
+If all test cases for a program pass, Calculon outputs the program name and the number of passed tests:
+
+$ ./Calculon Suite1.suite
+a.out 3 of 3 tests passed.
+b.out 2 of 2 tests passed.
+In the event of test failures, Calculon outputs the name of the program, test number, and reason for failure.
+
+$ ./Calculon Suite1.suite
+b.out test 1 failed: diff failure, runtime error
+b.out test 2 failed: timeout
+Reason for failure should be a comma-separated list of reasons, in alphabetic order. Possible reasons are:
+
+diff failure
+timeout
+runtime error
+Directory Structure
+
+All tests must be run in a temporary directory created for the purpose of executing the tests. Calculon copies each program's files into that directory before running tests and destroys the directory after tests complete. Note that you can't use * when copying or deleting files - wildcard expansion is done by the shell, not UNIX commands. The name of the directory should be the process id of the Calculon program, prefixed with a period . so that it is hidden.
+
+The temporary directory is created and destroyed once per program.
+
+Compilation
+
+Each program must be built before running tests. If a file called Makefile exists in the directory where Calculon is run, Calculon copies that file into the temporary test directory and executes make <name of test program>. If no such file exists, Calculon simply executes gcc on all .c files specified for the program. Make sure that you name the output of gcc as indicated by the program definition line.
+
+Execution
+
+Use SafeRun to perform the execution of each program for testing. Use the default values for all arguments except for:
+
+-p, which is 30
+
+-t, which is the specified timeout for that test
+
+-T, which is 10 times the specific timeout
+
+Also make sure that you use SafeRun for every execution of your Calculon program as well, since you will be using fork in your implementation. As always, you must wait for all forked children.
+
+Note that when you are testing your Calculon implementation, you will need to use a -p limit of 30 as well. When you fork a child process, that child process inherits the limitations of the parent process, and an unprivileged process is not allowed to raise limitations on itself, only lower them. This means that if you use SafeRun -p20 Calculon and then try to exec SafeRun -p30 a.out from within Calculon, you will get an error.
+
+Exit Status
+
+You must check the exit status of SafeRun after each child process execution. Non-zero exit status is reported as a runtime error with the exception of a SafeRun report of timeout, which is reported as timeout instead. Note that it is possible to have both runtime error and timeout if SafeRun reports both issues.
+
+Output Diffing
+
+When you fork child processes for execution of test programs, redirect both stdout and stderr to a temporary file called test.output.temp for diff checking.
+
+Exec diff and inspect the error status to determine whether a diff failure occurred. You should perform the diff check even in the event of other errors.
+
+Note that SafeRun will print messages to stderr when timeouts or runtime errors occurs. This means that in most cases, timeout and runtime errors will be accompanied by diff failure.
+
+System Calls
+
+You must not use the system(const char *command) function anywhere in your code. This requirement will be validated during manual style check.
+
+Exec Limitations
+
+The only programs that you may exec are:
+
+/bin/cp
+/usr/bin/make
+/usr/bin/gcc
+/usr/bin/diff
+/home/grade_cstaley/bin/SafeRun
+Note that you can't use ~grade_cstaley/bin/SafeRun as the path for SafeRun since tilde expansion is done by the shell, not UNIX system calls.
+mkdir
+
+Note that while you are not allowed to exec the user command mkdir, there is a system-level C function called mkdir that you are allowed to use.
+
+That means that you can do this in your code:
+
+mkdir(directoryName);
+but not this:
+
+fork();
+exec("mkdir");
+See man mkdir -s2 for more info.
+
+Error Handling
+
+You may assume that the suite definition file is formatted correctly.
+
+If a program source file is missing, Calculon prints Could not find required test file <file name> and exits with a non-zero status of 1.
+
+$ ./Calculon Suite1.suite
+Could not find required test file 'main.c'
+In the event of build failure, Calculon outputs any error output from the build command itself, adding a final line Failed: <build line>
+
+$ ./Calculon Suite1.suite
+make: *** No rule to make target `main.c', needed by `a.out'.  Stop.
+Failed: make a.out
+Calculon then continues execution of any remaining programs and exits with zero status. Build failure is considered a program failure in this respect, not a Calculon error or problem with the Suite definition.
+
+4. Testing
+Test files are provided in ~grade_cstaley/357/Calculon/tests
+
+Your Calculon executable should expect to be in a directory with a Suite#.suite file and all of the test files for that suite in the same directory. In order to test your program, you should write a script that, for each test:
+
+Makes a temporary directory and copies your Calculon executable into it.
+Grabs the Suite1.suite file and copies it into your temporary directory.
+Grabs every file in the Suite1/ directory and copies it into your temporary directory.
+cd into the temporary directory and execute ./Calculon with SafeRun.
+diff your output (combining stderr and stdout with 2>&1) against Suite1.out
+Repeat for all other Suites.
+This is exactly how Bender will test your Calculon! So it's a good idea to test this way.
+
+There is a test executable for you to try in ~grade_cstaley/357/Calculon/ and also a verbose version which prints out some additional diagnostic information.
+
+5. Submission
+You may submit files with any of the following names. You do not need to use all of these files - just pick any that you want to use.
+
+Calculon.h
+Calculon.c
+Array.c
+Array.h
+List.c
+List.h
+Parse.c
+Parse.h
+RunSuite.c
+RunSuite.h
+RunProgram.c
+RunProgram.h
+RunTest.c
+RunTest.h
+Util.c
+Util.h
+Submit your files to ~grade_cstaley/357/Calculon/turnin
+
+6. FAQ
+Q: I am calling remove or rmdir on my temp directory but it is not being removed! Afterwards when I check the directory it is empty, so why would rmdir fail?
+
+A: On the NFS, if you remove a file which another process is using the remove will happen successfully but an odd and elusive temp file will be created in its place. The file will be hidden, and it will get removed once all of the processes have exited. Make sure that you have waited for all processes that are running at this point, and that you have closed all open file descriptors to files in that folder.
+
+7. Levels
+Development of Calculon is in three levels
+
+Basic Implement just the core Calculon without using SafeRun (except to run Calculon itself), the temporary directory, nor output diffing, nor gcc compilation (assume a Makefile exists). Generate an error message only if the exit code is nonzero.
+
+Bronze Add output diffing and gcc compilation if no Makefile exists
+
+Silver Implement the full Calculon version as described
+
+Gold Rather than performing one program's tests at a time, fork Calculon for each suite and have each Calculon child manage one suite, with all suites tested in parallel. Each fork will create its own temporary directory, named using the fork's pid. Be sure that suite reports do not interleave with one another in the output.

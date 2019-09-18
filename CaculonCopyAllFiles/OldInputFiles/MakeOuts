@@ -1,0 +1,11 @@
+for suite in 1 2 3 4 5 6 7 8
+do
+   mkdir _Test
+   cp Suite$suite.suite _Test
+   cp  Suite$suite/* _Test
+   cd _Test
+   ../../Calculon Suite$suite.suite >& ../Suite$suite.out
+   cd ..
+   rm -rf _Test
+done
+

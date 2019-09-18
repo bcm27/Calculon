@@ -1,0 +1,39 @@
+#******************************************************************************
+# Creates a copy of the Suite(x).suite folder and data file inside a temporary
+# directory as as a copy of Calculon and all necessary. 
+# Runs SafeRun -p50 ./Calculon
+#
+#******************************************************************************
+clear
+echo "**************************************************************"
+echo "Argument usage:" 
+echo "   $0 Suite<\number>.suite <optional>|d"
+#echo "Copying Calculon and data files into folder..."
+#echo "**************************************************"
+#echo "Running Calculon..."
+echo "**************************************************************"
+# change to the working directory
+cd workingDirectory/testingEnvironment
+
+# making the directory
+(mkdir -p "$1")
+cd ../../InputFiles
+
+# transfering basic data files
+cp $1.out ../workingDirectory/testingEnvironment/$1 
+cp $1.out ../workingDirectory/testingEnvironment
+cp $1 -r ../workingDirectory/testingEnvironment
+# transfering calculon
+cd ..
+cp Calculon ./workingDirectory/testingEnvironment/$1
+
+# changing directory to new sub directory
+cd ~/Calculon/workingDirectory/testingEnvironment/$1 
+
+#echo "SafeRun -p50 ./multiFileCalculon $1.suite $2"
+# run calculon within saferun
+SafeRun -p50 ./Calculon $1.suite $2
+
+cd ../..
+echo "$0 Script Complete"
+echo "**************************************************************"
